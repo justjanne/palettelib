@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 
+from palettelib.format.format_act import PaletteFormatACT
 from palettelib.format.format_ase import PaletteFormatASE
 from palettelib.format.format_gpl import PaletteFormatGPL
 from palettelib.format.format_kpl import PaletteFormatKPL
@@ -8,9 +9,12 @@ from palettelib.format.format_yaml import PaletteFormatYAML
 from palettelib.io import PaletteFormat, PaletteReader, PaletteWriter
 from palettelib.palette import Palette
 
-formats: list[PaletteFormat] = [PaletteFormatYAML, PaletteFormatGPL, PaletteFormatASE, PaletteFormatKPL]
+formats: list[PaletteFormat] = [
+    PaletteFormatYAML, PaletteFormatGPL, PaletteFormatASE,
+    PaletteFormatKPL, PaletteFormatACT
+]
 readers: dict[str, PaletteReader] = dict([(format, reader) for format, reader, writer in formats])
-writers: dict[str, PaletteWriter] = dict([(format, writer) for format, reader, writer in formats])
+writers: dict[str, PaletteWriter] = dict([(format, writer) for format, reader, writer in formats if writer is not None])
 
 
 def read_file(filepath: str) -> Palette:
