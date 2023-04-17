@@ -1,8 +1,11 @@
 import swatch as ase
 
 from palettelib.color import ColorRGB, ColorCMYK, ColorLAB, ColorGrayscale
-from palettelib.io import PaletteFormat
+from palettelib.io import PaletteFormat, tonemap, RangePaletteNative
 from palettelib.palette import Palette, ColorGroup, ColorSwatch
+
+RangeAseNative = (0, 1)
+RangeAseLabAB = (-128, 127)
 
 
 def dict_to_swatch(entry: dict) -> ColorSwatch:
@@ -18,19 +21,34 @@ def dict_to_swatch(entry: dict) -> ColorSwatch:
     rgb = None
     if mode == 'RGB':
         r, g, b = values
-        rgb = ColorRGB(r, g, b)
+        rgb = ColorRGB(
+            tonemap(r, RangeAseNative, RangePaletteNative),
+            tonemap(g, RangeAseNative, RangePaletteNative),
+            tonemap(b, RangeAseNative, RangePaletteNative),
+        )
     cmyk = None
     if mode == 'CMYK':
         c, m, y, k = values
-        cmyk = ColorCMYK(c, m, y, k)
+        cmyk = ColorCMYK(
+            tonemap(c, RangeAseNative, RangePaletteNative),
+            tonemap(m, RangeAseNative, RangePaletteNative),
+            tonemap(y, RangeAseNative, RangePaletteNative),
+            tonemap(k, RangeAseNative, RangePaletteNative),
+        )
     lab = None
     if mode == 'LAB':
         l, a, b = values
-        lab = ColorLAB(l, (a + 50) / 100.0, (b + 50) / 100.0)
+        lab = ColorLAB(
+            tonemap(l, RangeAseNative, RangePaletteNative),
+            tonemap(a, RangeAseLabAB, RangePaletteNative),
+            tonemap(b, RangeAseLabAB, RangePaletteNative),
+        )
     gray = None
     if mode == 'Gray':
         k, = values
-        gray = ColorGrayscale(k)
+        gray = ColorGrayscale(
+            tonemap(k, RangeAseNative, RangePaletteNative),
+        )
     return ColorSwatch(name, spot, rgb, cmyk, lab, gray)
 
 
@@ -60,7 +78,11 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
             'type': swatch_type,
             'data': {
                 'mode': 'RGB',
-                'values': [swatch.rgb.r, swatch.rgb.g, swatch.rgb.b]
+                'values': [
+                    tonemap(swatch.rgb.r, RangePaletteNative, RangeAseNative),
+                    tonemap(swatch.rgb.g, RangePaletteNative, RangeAseNative),
+                    tonemap(swatch.rgb.b, RangePaletteNative, RangeAseNative),
+                ]
             }
         })
     if swatch.cmyk is not None:
@@ -69,7 +91,12 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
             'type': swatch_type,
             'data': {
                 'mode': 'CMYK',
-                'values': [swatch.cmyk.c, swatch.cmyk.m, swatch.cmyk.y, swatch.cmyk.k]
+                'values': [
+                    tonemap(swatch.cmyk.c, RangePaletteNative, RangeAseNative),
+                    tonemap(swatch.cmyk.m, RangePaletteNative, RangeAseNative),
+                    tonemap(swatch.cmyk.y, RangePaletteNative, RangeAseNative),
+                    tonemap(swatch.cmyk.k, RangePaletteNative, RangeAseNative),
+                ]
             }
         })
     if swatch.lab is not None:
@@ -78,7 +105,11 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
             'type': swatch_type,
             'data': {
                 'mode': 'LAB',
-                'values': [swatch.lab.l, (swatch.lab.a * 100.0) - 50, (swatch.lab.b * 100.0) - 50]
+                'values': [
+                    tonemap(swatch.lab.l, RangePaletteNative, RangeAseNative),
+                    tonemap(swatch.lab.a, RangePaletteNative, RangeAseLabAB),
+                    tonemap(swatch.lab.b, RangePaletteNative, RangeAseLabAB),
+                ]
             }
         })
     if swatch.gray is not None:
@@ -87,7 +118,9 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
             'type': swatch_type,
             'data': {
                 'mode': 'Gray',
-                'values': [swatch.gray.k]
+                'values': [
+                    tonemap(swatch.gray.k, RangePaletteNative, RangeAseNative),
+                ]
             }
         })
     return result

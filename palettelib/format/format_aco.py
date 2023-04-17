@@ -2,8 +2,12 @@ import struct
 from typing import Optional, BinaryIO
 
 from palettelib.color import ColorCMYK, ColorRGB, ColorLAB, ColorGrayscale
-from palettelib.io import PaletteFormat
+from palettelib.io import PaletteFormat, tonemap, RangePaletteNative
 from palettelib.palette import Palette, ColorSwatch
+
+RangeAcoNative = (0, 65535)
+RangeAcoBrightness = (0, 10000)
+RangeAcoLabAB = (-12800, 12700)
 
 
 def parse_swatch(stream: BinaryIO, version: int) -> ColorSwatch:
@@ -15,16 +19,31 @@ def parse_swatch(stream: BinaryIO, version: int) -> ColorSwatch:
     gray: Optional[ColorGrayscale] = None
     if swatch_type == 0:
         r, g, b = struct.unpack_from('!3H', stream.read(8))
-        rgb = ColorRGB(r / 65535.0, g / 65535.0, b / 65535.0)
+        rgb = ColorRGB(
+            tonemap(r, RangeAcoNative, RangePaletteNative),
+            tonemap(g, RangeAcoNative, RangePaletteNative),
+            tonemap(b, RangeAcoNative, RangePaletteNative),
+        )
     elif swatch_type == 2:
         c, m, y, k = struct.unpack_from('!4H', stream.read(8))
-        cmyk = ColorCMYK(c / 65535.0, m / 65535.0, y / 65535.0, k / 65535.0)
+        cmyk = ColorCMYK(
+            tonemap(c, RangeAcoNative, RangePaletteNative),
+            tonemap(m, RangeAcoNative, RangePaletteNative),
+            tonemap(y, RangeAcoNative, RangePaletteNative),
+            tonemap(k, RangeAcoNative, RangePaletteNative),
+        )
     elif swatch_type == 7:
         l, a, b = struct.unpack_from('!Hhh', stream.read(8))
-        lab = ColorLAB(l / 10000.0, (a + 12800) / 25500.0, (b + 12800) / 25500.0)
+        lab = ColorLAB(
+            tonemap(l, RangeAcoBrightness, RangePaletteNative),
+            tonemap(a, RangeAcoLabAB, RangePaletteNative),
+            tonemap(b, RangeAcoLabAB, RangePaletteNative)
+        )
     elif swatch_type == 8:
         k, = struct.unpack_from('!H', stream.read(8))
-        gray = ColorGrayscale(k / 10000.0)
+        gray = ColorGrayscale(
+            tonemap(k, RangeAcoBrightness, RangePaletteNative)
+        )
     else:
         raise Exception("unsupported color format: {0}".format(swatch_type))
 
@@ -64,32 +83,43 @@ def read_aco(filepath: str) -> Palette:
 def write_color_rgb(stream: BinaryIO, color: ColorRGB):
     stream.write(struct.pack('!H', 0))
     buffer = bytearray(8)
-    struct.pack_into('!3H', buffer, 0, int(color.r * 65535),
-                     int(color.g * 65535), int(color.b * 65535))
+    struct.pack_into(
+        '!3H', buffer, 0,
+        int(tonemap(color.r, RangePaletteNative, RangeAcoNative)),
+        int(tonemap(color.g, RangePaletteNative, RangeAcoNative)),
+        int(tonemap(color.b, RangePaletteNative, RangeAcoNative)))
     stream.write(buffer)
 
 
 def write_color_cmyk(stream: BinaryIO, color: ColorCMYK):
     stream.write(struct.pack('!H', 2))
     buffer = bytearray(8)
-    struct.pack_into('!4H', buffer, 0, int(color.c * 65535),
-                     int(color.m * 65535), int(color.y * 65535), int(color.k * 65535))
+    struct.pack_into(
+        '!4H', buffer, 0,
+        int(tonemap(color.c, RangePaletteNative, RangeAcoNative)),
+        int(tonemap(color.m, RangePaletteNative, RangeAcoNative)),
+        int(tonemap(color.y, RangePaletteNative, RangeAcoNative)),
+        int(tonemap(color.k, RangePaletteNative, RangeAcoNative)))
     stream.write(buffer)
 
 
 def write_color_lab(stream: BinaryIO, color: ColorLAB):
     stream.write(struct.pack('!H', 7))
     buffer = bytearray(8)
-    struct.pack_into('!Hhh', buffer, 0, int(color.l * 10000),
-                     int(color.a * 25500 - 12800), int(color.b * 25500 - 12800))
+    struct.pack_into(
+        '!Hhh', buffer, 0,
+        int(tonemap(color.l, RangePaletteNative, RangeAcoBrightness)),
+        int(tonemap(color.a, RangePaletteNative, RangeAcoLabAB)),
+        int(tonemap(color.b, RangePaletteNative, RangeAcoLabAB)))
     stream.write(buffer)
 
 
 def write_color_gray(stream: BinaryIO, color: ColorGrayscale):
     stream.write(struct.pack('!H', 8))
     buffer = bytearray(8)
-    struct.pack_into('!H', buffer, 0,
-                     int(color.k * 10000))
+    struct.pack_into(
+        '!H', buffer, 0,
+        int(tonemap(color.k, RangePaletteNative, RangeAcoBrightness)))
     stream.write(buffer)
 
 

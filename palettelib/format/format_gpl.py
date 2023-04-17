@@ -1,8 +1,10 @@
 from typing import TextIO
 
 from palettelib.color import ColorRGB
-from palettelib.io import PaletteFormat
+from palettelib.io import PaletteFormat, RangePaletteNative, tonemap
 from palettelib.palette import Palette, ColorSwatch
+
+RangeGplNative = (0, 255)
 
 
 def read_gpl(filepath: str) -> Palette:
@@ -32,7 +34,11 @@ def read_gpl(filepath: str) -> Palette:
                     r, g, b = entries
                 else:
                     raise Exception("Entry is not a valid GIMP Palette entry: '" + line + "'")
-                color_rgb = ColorRGB(int(r) / 255.0, int(g) / 255.0, int(b) / 255.0)
+                color_rgb = ColorRGB(
+                    tonemap(int(r), RangeGplNative, RangePaletteNative),
+                    tonemap(int(g), RangeGplNative, RangePaletteNative),
+                    tonemap(int(b), RangeGplNative, RangePaletteNative),
+                )
                 swatch = ColorSwatch(name, False, rgb=color_rgb)
                 swatches.append(swatch)
             else:
@@ -45,15 +51,15 @@ def write_swatch(stream: TextIO, swatch: ColorSwatch):
     if swatch.rgb is not None:
         if swatch.name is None:
             stream.write("{0:>3} {1:>3} {2:>3}\n".format(
-                int(swatch.rgb.r * 255),
-                int(swatch.rgb.g * 255),
-                int(swatch.rgb.b * 255)
+                int(tonemap(swatch.rgb.r, RangePaletteNative, RangeGplNative)),
+                int(tonemap(swatch.rgb.g, RangePaletteNative, RangeGplNative)),
+                int(tonemap(swatch.rgb.b, RangePaletteNative, RangeGplNative)),
             ))
         else:
             stream.write("{0:>3} {1:>3} {2:>3} {3}\n".format(
-                int(swatch.rgb.r * 255),
-                int(swatch.rgb.g * 255),
-                int(swatch.rgb.b * 255),
+                int(tonemap(swatch.rgb.r, RangePaletteNative, RangeGplNative)),
+                int(tonemap(swatch.rgb.g, RangePaletteNative, RangeGplNative)),
+                int(tonemap(swatch.rgb.b, RangePaletteNative, RangeGplNative)),
                 swatch.name
             ))
 

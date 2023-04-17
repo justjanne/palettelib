@@ -3,8 +3,14 @@ from typing import Optional
 import yaml
 
 from palettelib.color import ColorCMYK, ColorRGB, ColorLAB, ColorGrayscale
-from palettelib.io import PaletteFormat
+from palettelib.io import PaletteFormat, tonemap, RangePaletteNative
 from palettelib.palette import Palette, ColorGroup, ColorSwatch
+
+RangeYamlRgb = (0, 255)
+RangeYamlCmyk = (0, 100)
+RangeYamlLabL = (0, 100)
+RangeYamlLabAB = (-100, 100)
+RangeYamlGray = (0, 100)
 
 
 def swatch_to_dict(data: ColorSwatch) -> dict:
@@ -14,15 +20,28 @@ def swatch_to_dict(data: ColorSwatch) -> dict:
     if data.spot:
         serialized['spot'] = True
     if data.rgb is not None:
-        serialized['rgb'] = [int(value * 255) for value in
-                             [data.rgb.r, data.rgb.g, data.rgb.b]]
+        serialized['rgb'] = [
+            int(tonemap(data.rgb.r, RangePaletteNative, RangeYamlRgb)),
+            int(tonemap(data.rgb.g, RangePaletteNative, RangeYamlRgb)),
+            int(tonemap(data.rgb.b, RangePaletteNative, RangeYamlRgb)),
+        ]
     if data.cmyk is not None:
-        serialized['cmyk'] = [int(value * 100) for value in
-                              [data.cmyk.c, data.cmyk.m, data.cmyk.y, data.cmyk.k]]
+        serialized['cmyk'] = [
+            int(tonemap(data.cmyk.c, RangePaletteNative, RangeYamlCmyk)),
+            int(tonemap(data.cmyk.m, RangePaletteNative, RangeYamlCmyk)),
+            int(tonemap(data.cmyk.y, RangePaletteNative, RangeYamlCmyk)),
+            int(tonemap(data.cmyk.k, RangePaletteNative, RangeYamlCmyk)),
+        ]
     if data.lab is not None:
-        serialized['lab'] = [data.lab.l, data.lab.a, data.lab.b]
+        serialized['lab'] = [
+            tonemap(data.lab.l, RangePaletteNative, RangeYamlLabL),
+            tonemap(data.lab.a, RangePaletteNative, RangeYamlLabAB),
+            tonemap(data.lab.b, RangePaletteNative, RangeYamlLabAB),
+        ]
     if data.gray is not None:
-        serialized['gray'] = [int(data.gray.k * 100.0)]
+        serialized['gray'] = [
+            int(tonemap(data.gray.k, RangePaletteNative, RangeYamlGray)),
+        ]
     return serialized
 
 
@@ -50,25 +69,40 @@ def dict_to_swatch(data: dict) -> ColorSwatch:
     rgb = data.get('rgb', [])
     if len(rgb) == 3:
         r, g, b = rgb
-        rgb = ColorRGB(r / 255.0, g / 255.0, b / 255.0)
+        rgb = ColorRGB(
+            tonemap(r, RangeYamlRgb, RangePaletteNative),
+            tonemap(g, RangeYamlRgb, RangePaletteNative),
+            tonemap(b, RangeYamlRgb, RangePaletteNative),
+        )
     else:
         rgb = None
     cmyk = data.get('cmyk', [])
     if len(cmyk) == 4:
         c, m, y, k = cmyk
-        cmyk = ColorCMYK(c / 100.0, m / 100.0, y / 100.0, k / 100.0)
+        cmyk = ColorCMYK(
+            tonemap(c, RangeYamlCmyk, RangePaletteNative),
+            tonemap(m, RangeYamlCmyk, RangePaletteNative),
+            tonemap(y, RangeYamlCmyk, RangePaletteNative),
+            tonemap(k, RangeYamlCmyk, RangePaletteNative),
+        )
     else:
         cmyk = None
     lab = data.get('lab', [])
     if len(lab) == 3:
         l, a, b = lab
-        lab = ColorLAB(l, a, b)
+        lab = ColorLAB(
+            tonemap(l, RangeYamlLabL, RangePaletteNative),
+            tonemap(a, RangeYamlLabAB, RangePaletteNative),
+            tonemap(b, RangeYamlLabAB, RangePaletteNative),
+        )
     else:
         lab = None
     gray = data.get('gray', [])
     if len(gray) == 1:
         k, = gray
-        gray = ColorGrayscale(k)
+        gray = ColorGrayscale(
+            tonemap(k, RangeYamlGray, RangePaletteNative),
+        )
     else:
         gray = None
     return ColorSwatch(name, spot, rgb, cmyk, lab, gray)
