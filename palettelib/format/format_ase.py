@@ -26,7 +26,7 @@ def dict_to_swatch(entry: dict) -> ColorSwatch:
     lab = None
     if mode == 'LAB':
         l, a, b = values
-        lab = ColorLAB(l, a, b)
+        lab = ColorLAB(l, (a + 50) / 100.0, (b + 50) / 100.0)
     gray = None
     if mode == 'Gray':
         k, = values
@@ -78,7 +78,7 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
             'type': swatch_type,
             'data': {
                 'mode': 'LAB',
-                'values': [swatch.lab.l, swatch.lab.a, swatch.lab.b]
+                'values': [swatch.lab.l, (swatch.lab.a * 100.0) - 50, (swatch.lab.b * 100.0) - 50]
             }
         })
     if swatch.gray is not None:

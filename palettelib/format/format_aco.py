@@ -21,7 +21,7 @@ def parse_swatch(stream: BinaryIO, version: int) -> ColorSwatch:
         cmyk = ColorCMYK(c / 65535.0, m / 65535.0, y / 65535.0, k / 65535.0)
     elif swatch_type == 7:
         l, a, b = struct.unpack_from('!Hhh', stream.read(8))
-        lab = ColorLAB(l / 100.0, a / 100.0, b / 100.0)
+        lab = ColorLAB(l / 10000.0, (a + 12800) / 25500.0, (b + 12800) / 25500.0)
     elif swatch_type == 8:
         k, = struct.unpack_from('!H', stream.read(8))
         gray = ColorGrayscale(k / 10000.0)
@@ -80,8 +80,8 @@ def write_color_cmyk(stream: BinaryIO, color: ColorCMYK):
 def write_color_lab(stream: BinaryIO, color: ColorLAB):
     stream.write(struct.pack('!H', 7))
     buffer = bytearray(8)
-    struct.pack_into('!Hhh', buffer, 0, int(color.l * 100),
-                     int(color.a * 100), int(color.b * 100))
+    struct.pack_into('!Hhh', buffer, 0, int(color.l * 10000),
+                     int(color.a * 25500 - 12800), int(color.b * 25500 - 12800))
     stream.write(buffer)
 
 

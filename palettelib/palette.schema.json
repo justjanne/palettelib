@@ -75,7 +75,9 @@
         "lab": {
           "type": "array",
           "items": {
-            "type": "number"
+            "type": "number",
+            "inclusiveMinimum": 0,
+            "inclusiveMaximum": 1
           },
           "minItems": 3,
           "maxItems": 3
