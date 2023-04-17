@@ -18,6 +18,6 @@ class ColorGroup(NamedTuple):
 
 
 class Palette(NamedTuple):
-    name: Optional[str]
-    groups: list[ColorGroup]
-    swatches: list[ColorSwatch]
+    name: Optional[str] = None
+    groups: list[ColorGroup] = []
+    swatches: list[ColorSwatch] = []
