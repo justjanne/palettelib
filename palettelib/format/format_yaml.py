@@ -11,7 +11,8 @@ def swatch_to_dict(data: ColorSwatch) -> dict:
     serialized: dict = {}
     if data.name is not None:
         serialized['name'] = data.name
-    serialized['spot'] = data.spot
+    if data.spot:
+        serialized['spot'] = True
     if data.rgb is not None:
         serialized['rgb'] = [int(value * 255) for value in
                              [data.rgb.r, data.rgb.g, data.rgb.b]]
