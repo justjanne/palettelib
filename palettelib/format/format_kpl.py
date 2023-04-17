@@ -121,12 +121,14 @@ def swatch_to_xml(document: minidom.Document, swatch: ColorSwatch) -> minidom.El
     return el_swatch
 
 
-def palette_to_colorset_xml(palette: Palette) -> str:
+def palette_to_colorset_xml(palette: Palette, version: str) -> str:
     document: minidom.Document = minidom.Document()
     el_colorset: minidom.Element = document.createElement('ColorSet')
-    el_colorset.setAttribute('readonly', 'true')
-    el_colorset.setAttribute('version', '1.0')
+    el_colorset.setAttribute('version', version)
     el_colorset.setAttribute('name', palette.name)
+    if len(palette.swatches) == 0:
+        el_colorset.setAttribute("rows", "0")
+        el_colorset.setAttribute("columns", "0")
     document.appendChild(el_colorset)
     for group in palette.groups:
         el_group: minidom.Element = document.createElement('Group')
@@ -140,10 +142,11 @@ def palette_to_colorset_xml(palette: Palette) -> str:
 
 
 def write_kpl(filepath: str, palette: Palette):
+    version = "2.0"
     with ZipFile(filepath, 'w') as data:
         data.writestr('mimetype', 'krita/x-colorset')
         data.writestr('profiles.xml', palette_to_profiles_xml())
-        data.writestr('colorset.xml', palette_to_colorset_xml(palette))
+        data.writestr('colorset.xml', palette_to_colorset_xml(palette, version))
 
 
 PaletteFormatKPL: PaletteFormat = ('.kpl', read_kpl, write_kpl)
