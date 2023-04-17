@@ -4,8 +4,8 @@ from palettelib.color import ColorRGB, ColorCMYK, ColorLAB, ColorGrayscale
 
 
 class ColorSwatch(NamedTuple):
-    name: str
-    spot: bool
+    name: Optional[str] = None
+    spot: bool = False
     rgb: Optional[ColorRGB] = None
     cmyk: Optional[ColorCMYK] = None
     lab: Optional[ColorLAB] = None
