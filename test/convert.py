@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 
+from palettelib.format.format_aco import PaletteFormatACO
 from palettelib.format.format_act import PaletteFormatACT
 from palettelib.format.format_ase import PaletteFormatASE
 from palettelib.format.format_gpl import PaletteFormatGPL
@@ -11,7 +12,7 @@ from palettelib.palette import Palette
 
 formats: list[PaletteFormat] = [
     PaletteFormatYAML, PaletteFormatGPL, PaletteFormatASE,
-    PaletteFormatKPL, PaletteFormatACT
+    PaletteFormatKPL, PaletteFormatACT, PaletteFormatACO
 ]
 readers: dict[str, PaletteReader] = dict([(format, reader) for format, reader, writer in formats])
 writers: dict[str, PaletteWriter] = dict([(format, writer) for format, reader, writer in formats if writer is not None])
