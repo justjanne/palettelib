@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/justjanne/palettelib/palette.schema.json",
+  "title": "Palette",
+  "description": "Color palette in yaml",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "Name of the color palette",
+      "type": "string"
+    },
+    "swatches": {
+      "description": "List of ungrouped color swatches",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/swatch"
+      }
+    },
+    "groups": {
+      "description": "List of color swatch groups",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "swatches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/swatch"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "swatch": {
+      "description": "Color Swatch",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name",
+          "type": "string"
+        },
+        "spot": {
+          "description": "Whether the color swatch represents a spot color",
+          "type": "boolean"
+        },
+        "cmyk": {
+          "description": "CMYK values for the color swatch",
+          "type": "array",
+          "items": {
+            "type": "number",
+            "inclusiveMinimum": 0,
+            "inclusiveMaximum": 100
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "rgb": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "inclusiveMinimum": 0,
+            "inclusiveMaximum": 255
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "lab": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "gray": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "inclusiveMinimum": 0,
+            "inclusiveMaximum": 100
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    }
+  }
+}

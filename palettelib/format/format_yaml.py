@@ -99,4 +99,4 @@ def write_yaml(filepath: str, palette: Palette):
         yaml.safe_dump(serialized, stream, default_flow_style=None)
 
 
-PaletteFormatYAML: PaletteFormat = ('.yaml', read_yaml, write_yaml)
+PaletteFormatYAML: PaletteFormat = ('.palette.yaml', read_yaml, write_yaml)
