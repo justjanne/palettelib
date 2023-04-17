@@ -1,6 +1,6 @@
 from typing import NamedTuple, Optional
 
-from palette.color import ColorRGB, ColorCMYK, ColorLAB, ColorGrayscale
+from palettelib.color import ColorRGB, ColorCMYK, ColorLAB, ColorGrayscale
 
 
 class ColorSwatch(NamedTuple):

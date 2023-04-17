@@ -2,9 +2,9 @@ from typing import Optional
 
 import yaml
 
-from palette.color import ColorCMYK, ColorRGB, ColorLAB, ColorGrayscale
-from palette.format import PaletteFormat
-from palette.palette import Palette, ColorGroup, ColorSwatch
+from palettelib.color import ColorCMYK, ColorRGB, ColorLAB, ColorGrayscale
+from palettelib.io import PaletteFormat
+from palettelib.palette import Palette, ColorGroup, ColorSwatch
 
 
 def swatch_to_dict(data: ColorSwatch) -> dict:

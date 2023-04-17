@@ -1,0 +1,12 @@
+[project]
+name = "palettelib"
+version = "0.1.0"
+description = "library to read and write color palettes in various formats"
+license = { file = "LICENSE.md" }
+authors = [
+    { name = "Janne Mareike Koschinski", email = "mail@justjanne.de" },
+]
+dependencies = [
+    'PyYAML ~= 6.0',
+    'swatch ~= 0.4',
+]

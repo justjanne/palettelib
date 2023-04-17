@@ -1,6 +1,6 @@
 from typing import Callable
 
-from palette.palette import Palette
+from palettelib.palette import Palette
 
 PaletteReader = Callable[[str], Palette]
 PaletteWriter = Callable[[str, Palette], None]

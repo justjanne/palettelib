@@ -1,8 +1,8 @@
 from typing import TextIO
 
-from palette.color import ColorRGB
-from palette.format import PaletteFormat
-from palette.palette import Palette, ColorSwatch
+from palettelib.color import ColorRGB
+from palettelib.io import PaletteFormat
+from palettelib.palette import Palette, ColorSwatch
 
 
 def read_gpl(filepath: str) -> Palette:

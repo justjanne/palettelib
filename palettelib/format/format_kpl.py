@@ -1,8 +1,8 @@
+from xml.dom import minidom
 from zipfile import ZipFile
 
-from palette.format import PaletteFormat
-from palette.palette import Palette, ColorSwatch
-from xml.dom import minidom
+from palettelib.io import PaletteFormat
+from palettelib.palette import Palette, ColorSwatch
 
 
 def read_kpl(filepath: str) -> Palette:
