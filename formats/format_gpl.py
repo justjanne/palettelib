@@ -1,6 +1,8 @@
+from typing import TextIO
+
 from palette.color import ColorRGB
 from palette.format import PaletteFormat
-from palette.palette import Palette, ColorSwatch, ColorGroup
+from palette.palette import Palette, ColorSwatch
 
 
 def read_gpl(filepath: str) -> Palette:
@@ -30,13 +32,30 @@ def read_gpl(filepath: str) -> Palette:
                     r, g, b = entries
                 else:
                     raise Exception("Entry is not a valid GIMP Palette entry: '" + line + "'")
-                swatch = ColorSwatch(name, rgb=ColorRGB(int(r) / 255.0, int(g) / 255.0, int(b) / 255.0))
+                color_rgb = ColorRGB(int(r) / 255.0, int(g) / 255.0, int(b) / 255.0)
+                swatch = ColorSwatch(name, False, rgb=color_rgb)
                 swatches.append(swatch)
             else:
                 key, value = line.split(': ')
                 attributes[key.lower()] = value
-        return Palette(name=attributes.get('name', None),
-                       groups=[ColorGroup(name=None, swatches=swatches)])
+        return Palette(name=attributes.get('name', None), groups=[], swatches=swatches)
+
+
+def write_swatch(stream: TextIO, swatch: ColorSwatch):
+    if swatch.rgb is not None:
+        if swatch.name is None:
+            stream.write("{0:>3} {1:>3} {2:>3}\n".format(
+                int(swatch.rgb.r * 255),
+                int(swatch.rgb.g * 255),
+                int(swatch.rgb.b * 255)
+            ))
+        else:
+            stream.write("{0:>3} {1:>3} {2:>3} {3}\n".format(
+                int(swatch.rgb.r * 255),
+                int(swatch.rgb.g * 255),
+                int(swatch.rgb.b * 255),
+                swatch.name
+            ))
 
 
 def write_gpl(filepath: str, palette: Palette):
@@ -44,22 +63,11 @@ def write_gpl(filepath: str, palette: Palette):
         stream.write("GIMP Palette\n")
         if palette.name is not None:
             stream.write('Name: {0}\n'.format(palette.name))
+        for swatch in palette.swatches:
+            write_swatch(stream, swatch)
         for group in palette.groups:
             for swatch in group.swatches:
-                if swatch.rgb is not None:
-                    if swatch.name is None:
-                        stream.write("{0:>3} {1:>3} {2:>3}\n".format(
-                            int(swatch.rgb.r * 255),
-                            int(swatch.rgb.g * 255),
-                            int(swatch.rgb.b * 255)
-                        ))
-                    else:
-                        stream.write("{0:>3} {1:>3} {2:>3} {3}\n".format(
-                            int(swatch.rgb.r * 255),
-                            int(swatch.rgb.g * 255),
-                            int(swatch.rgb.b * 255),
-                            swatch.name
-                        ))
+                write_swatch(stream, swatch)
 
 
 PaletteFormatGPL: PaletteFormat = ('.gpl', read_gpl, write_gpl)

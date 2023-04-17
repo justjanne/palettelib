@@ -5,6 +5,7 @@ from palette.color import ColorRGB, ColorCMYK, ColorLAB, ColorGrayscale
 
 class ColorSwatch(NamedTuple):
     name: str
+    spot: bool
     rgb: Optional[ColorRGB] = None
     cmyk: Optional[ColorCMYK] = None
     lab: Optional[ColorLAB] = None
@@ -19,3 +20,4 @@ class ColorGroup(NamedTuple):
 class Palette(NamedTuple):
     name: Optional[str]
     groups: list[ColorGroup]
+    swatches: list[ColorSwatch]

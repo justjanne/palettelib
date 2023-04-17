@@ -11,6 +11,7 @@ def swatch_to_dict(data: ColorSwatch) -> dict:
     serialized: dict = {}
     if data.name is not None:
         serialized['name'] = data.name
+    serialized['spot'] = data.spot
     if data.rgb is not None:
         serialized['rgb'] = [int(value * 255) for value in
                              [data.rgb.r, data.rgb.g, data.rgb.b]]
@@ -32,14 +33,19 @@ def group_to_dict(data: ColorGroup) -> Optional[dict]:
 
 
 def palette_to_dict(data: Palette) -> dict:
-    return {
-        'name': data.name,
-        'palette': [group_to_dict(group) for group in data.groups],
-    }
+    serialized = {}
+    if data.name is not None:
+        serialized['name'] = data.name
+    if data.groups is not None and len(data.groups) > 0:
+        serialized['groups'] = [group_to_dict(group) for group in data.groups]
+    if data.swatches is not None and len(data.swatches) > 0:
+        serialized['swatches'] = [swatch_to_dict(swatch) for swatch in data.swatches]
+    return serialized
 
 
 def dict_to_swatch(data: dict) -> ColorSwatch:
     name = data.get('name', "")
+    spot = data.get('spot', False)
     rgb = data.get('rgb', [])
     if len(rgb) == 3:
         r, g, b = rgb
@@ -64,7 +70,7 @@ def dict_to_swatch(data: dict) -> ColorSwatch:
         gray = ColorGrayscale(k)
     else:
         gray = None
-    return ColorSwatch(name, rgb, cmyk, lab, gray)
+    return ColorSwatch(name, spot, rgb, cmyk, lab, gray)
 
 
 def dict_to_group(data: dict) -> ColorGroup:
@@ -75,8 +81,10 @@ def dict_to_group(data: dict) -> ColorGroup:
 
 def dict_to_palette(data: dict) -> Palette:
     name = data.get('name', "")
-    groups = data.get("palette", [])
-    return Palette(name, [dict_to_group(group) for group in groups])
+    groups = data.get("groups", [])
+    swatches = data.get("swatches", [])
+    return Palette(name, [dict_to_group(group) for group in groups],
+                   [dict_to_swatch(swatch) for swatch in swatches])
 
 
 def read_yaml(filepath: str) -> Palette:
