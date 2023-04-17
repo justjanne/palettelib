@@ -1,14 +1,14 @@
 name: YouTube
 swatches:
-- cmyk: [0, 95, 100, 0]
-  name: YouTube Red
+- name: YouTube Red
+  spot: false
+  cmyk: [0, 95, 100, 0]
   rgb: [255, 0, 0]
+- name: White
   spot: false
-- cmyk: [0, 0, 0, 0]
-  name: White
+  cmyk: [0, 0, 0, 0]
   rgb: [255, 255, 255]
+- name: Almost Black
   spot: false
-- cmyk: [0, 0, 0, 84]
-  name: Almost Black
+  cmyk: [0, 0, 0, 84]
   rgb: [40, 40, 40]
-  spot: false

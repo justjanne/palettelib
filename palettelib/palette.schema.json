@@ -23,6 +23,7 @@
         "type": "object",
         "properties": {
           "name": {
+            "description": "Name of the color group",
             "type": "string"
           },
           "swatches": {
@@ -31,17 +32,19 @@
               "$ref": "#/$defs/swatch"
             }
           }
-        }
+        },
+        "additionalProperties": false
       }
     }
   },
+  "additionalProperties": false,
   "$defs": {
     "swatch": {
       "description": "Color Swatch",
       "type": "object",
       "properties": {
         "name": {
-          "description": "Name",
+          "description": "Name of the color swatch",
           "type": "string"
         },
         "spot": {
@@ -87,7 +90,8 @@
           "minItems": 1,
           "maxItems": 1
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }
