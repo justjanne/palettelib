@@ -36,6 +36,7 @@ def write_act(filepath: str, data: Palette):
         stream.write(b'\x00\x00\x00' * (256 - len(colors)))
         stream.write(struct.pack('>H', len(colors)))
         stream.write(b'\xFF\xFF')
+        stream.truncate()
 
 
 PaletteFormatACT: PaletteFormat = ('.act', read_act, write_act)

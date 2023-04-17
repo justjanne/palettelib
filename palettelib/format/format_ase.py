@@ -1,6 +1,4 @@
-from typing import Optional
-
-import swatch
+import swatch as ase
 
 from palettelib.color import ColorRGB, ColorCMYK, ColorLAB, ColorGrayscale
 from palettelib.io import PaletteFormat
@@ -51,7 +49,7 @@ def dict_to_palette(data: list[dict]) -> Palette:
 
 
 def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
-    type = 'Spot' if swatch.spot else 'Process'
+    swatch_type = 'Spot' if swatch.spot else 'Process'
     name = swatch.name
     if name is None:
         name = "unnamed"
@@ -59,7 +57,7 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
     if swatch.rgb is not None:
         result.append({
             'name': name,
-            'type': type,
+            'type': swatch_type,
             'data': {
                 'mode': 'RGB',
                 'values': [swatch.rgb.r, swatch.rgb.g, swatch.rgb.b]
@@ -68,7 +66,7 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
     if swatch.cmyk is not None:
         result.append({
             'name': name,
-            'type': type,
+            'type': swatch_type,
             'data': {
                 'mode': 'CMYK',
                 'values': [swatch.cmyk.c, swatch.cmyk.m, swatch.cmyk.y, swatch.cmyk.k]
@@ -77,7 +75,7 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
     if swatch.lab is not None:
         result.append({
             'name': name,
-            'type': type,
+            'type': swatch_type,
             'data': {
                 'mode': 'LAB',
                 'values': [swatch.lab.l, swatch.lab.a, swatch.lab.b]
@@ -86,7 +84,7 @@ def swatch_to_dict(swatch: ColorSwatch) -> list[dict]:
     if swatch.gray is not None:
         result.append({
             'name': name,
-            'type': type,
+            'type': swatch_type,
             'data': {
                 'mode': 'Gray',
                 'values': [swatch.gray.k]
@@ -117,12 +115,12 @@ def palette_to_dict(data: Palette) -> list[dict]:
 
 
 def read_ase(filepath: str) -> Palette:
-    return dict_to_palette(swatch.parse(filepath))
+    return dict_to_palette(ase.parse(filepath))
 
 
 def write_ase(filepath: str, palette: Palette):
     data = palette_to_dict(palette)
-    swatch.write(data, filepath)
+    ase.write(data, filepath)
 
 
 PaletteFormatASE: PaletteFormat = ('.ase', read_ase, write_ase)

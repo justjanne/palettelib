@@ -68,6 +68,7 @@ def write_gpl(filepath: str, palette: Palette):
         for group in palette.groups:
             for swatch in group.swatches:
                 write_swatch(stream, swatch)
+        stream.truncate()
 
 
 PaletteFormatGPL: PaletteFormat = ('.gpl', read_gpl, write_gpl)

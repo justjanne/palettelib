@@ -7,15 +7,15 @@ from palettelib.io import PaletteFormat
 from palettelib.palette import Palette, ColorSwatch, ColorGroup
 
 
-def noneIfEmpty(value: str) -> Optional[str]:
+def none_if_empty(value: str) -> Optional[str]:
     if value.strip() == "":
         return None
     return value
 
 
 def xml_to_swatch(element: minidom.Element) -> ColorSwatch:
-    name = noneIfEmpty(element.getAttribute('name'))
-    spot = bool(noneIfEmpty(element.getAttribute('spot')))
+    name = none_if_empty(element.getAttribute('name'))
+    spot = bool(none_if_empty(element.getAttribute('spot')))
 
     elements: list[minidom.Element] = element.childNodes
 
@@ -54,7 +54,7 @@ def xml_to_swatch(element: minidom.Element) -> ColorSwatch:
 
 
 def xml_to_group(element: minidom.Element) -> ColorGroup:
-    name = noneIfEmpty(element.getAttribute('name'))
+    name = none_if_empty(element.getAttribute('name'))
     swatches = [xml_to_swatch(element)
                 for element in element.childNodes
                 if element.nodeName == 'ColorSetEntry']
@@ -66,7 +66,7 @@ def xml_to_palette(document: minidom.Document) -> Optional[Palette]:
     colorset: minidom.Element = document.documentElement
     if colorset.nodeName != "ColorSet":
         raise Exception("invalid KPL XML: {0}".format(document.toprettyxml()))
-    name = noneIfEmpty(colorset.getAttribute('name'))
+    name = none_if_empty(colorset.getAttribute('name'))
     swatches = [xml_to_swatch(element)
                 for element in colorset.childNodes
                 if element.nodeName == 'ColorSetEntry']
@@ -83,7 +83,7 @@ def read_kpl(filepath: str) -> Palette:
             return xml_to_palette(document)
 
 
-def palette_to_profiles_xml(palette: Palette) -> str:
+def palette_to_profiles_xml() -> str:
     document = minidom.Document()
     profiles = document.createElement('Profiles')
     document.appendChild(profiles)
@@ -142,7 +142,7 @@ def palette_to_colorset_xml(palette: Palette) -> str:
 def write_kpl(filepath: str, palette: Palette):
     with ZipFile(filepath, 'w') as data:
         data.writestr('mimetype', 'krita/x-colorset')
-        data.writestr('profiles.xml', palette_to_profiles_xml(palette))
+        data.writestr('profiles.xml', palette_to_profiles_xml())
         data.writestr('colorset.xml', palette_to_colorset_xml(palette))
 
 
