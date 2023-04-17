@@ -15,7 +15,7 @@ formats: list[PaletteFormat] = [
     PaletteFormatKPL, PaletteFormatACT, PaletteFormatACO
 ]
 readers: dict[str, PaletteReader] = dict([(format, reader) for format, reader, writer in formats])
-writers: dict[str, PaletteWriter] = dict([(format, writer) for format, reader, writer in formats if writer is not None])
+writers: dict[str, PaletteWriter] = dict([(format, writer) for format, reader, writer in formats])
 
 
 def read_file(filepath: str) -> Palette:
