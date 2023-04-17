@@ -46,12 +46,25 @@ def main():
         for format in readers:
             if filepath.endswith(format):
                 suffix = format
+        name = os.path.basename(filepath)[:-len(suffix)]
         data = read_file(filepath)
         if data is None:
             raise Exception("could not load palette : {0}".format(filepath))
-        name = os.path.basename(filepath)[:-len(suffix)]
-        for format in writers:
-            write_file("../build/test/resources/{0}{1}".format(name, format), data)
+        try:
+            for format in writers:
+                write_file("../build/test/resources/{0}{1}".format(name, format), data)
+        except Exception as e:
+            print("Could not convert {0}: {1}".format(filepath, e))
+        rewritten = read_file("../build/test/resources/{0}{1}".format(name, suffix))
+        if rewritten != data:
+            print("Error in serialization: file changed {0}".format(filepath))
+            os.makedirs("/home/janne/Desktop/error", exist_ok=True)
+            with open(os.path.join("/home/janne/Desktop/error", "{0}-expect.txt".format(name)), "w") as stream:
+                stream.write(str(data))
+                stream.truncate()
+            with open(os.path.join("/home/janne/Desktop/error", "{0}-actual.txt".format(name)), "w") as stream:
+                stream.write(str(rewritten))
+                stream.truncate()
 
 
 if __name__ == "__main__":
