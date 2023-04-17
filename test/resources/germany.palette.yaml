@@ -1,0 +1,14 @@
+name: Bundesregierung
+swatches:
+- cmyk: [0, 0, 0, 100]
+  name: Schwarz
+  rgb: [0, 0, 0]
+  spot: false
+- cmyk: [0, 100, 100, 0]
+  name: Rot
+  rgb: [255, 0, 0]
+  spot: false
+- cmyk: [0, 12, 100, 5]
+  name: Gold
+  rgb: [255, 204, 0]
+  spot: false
