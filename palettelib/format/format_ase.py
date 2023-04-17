@@ -130,7 +130,6 @@ def read_ase(filepath: str) -> Palette:
 
 def write_ase(filepath: str, palette: Palette):
     data = palette_to_dict(palette)
-    print(data)
     swatch.write(data, filepath)
 
 
