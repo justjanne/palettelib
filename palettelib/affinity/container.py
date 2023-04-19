@@ -329,10 +329,13 @@ class AffinityFile:
             file_length = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
             data_length = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
             _ = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            _ = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            _ = int.from_bytes(self.file.read(2), byteorder='little', signed=False)
-            _ = self.file.read(5)
+            table_count = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
+            table_length = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
+            _ = self.file.read(3)
             file_entries = []
-            while self.file.tell() < file_length:
+            end = self.file.tell() + table_length
+            for _ in range(table_count):
+                if self.file.tell() >= end:
+                    raise ValueError("file table corrupt: trying to read over the end")
                 file_entries.append(self._read_directory_entry(tag))
             return AffinityFileDirectory(flags, creation_date, file_length, data_length, file_entries)
