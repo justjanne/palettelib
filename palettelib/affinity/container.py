@@ -6,6 +6,8 @@ from io import BufferedIOBase
 from os import PathLike
 from typing import BinaryIO, NamedTuple, Optional, Callable
 
+from palettelib.util import print_columns
+
 CONTAINER_MAGIC = 0x414bff00
 CONTAINER_TAG_FAT = "#FAT"
 CONTAINER_TAG_FT2 = "#FT2"
@@ -186,24 +188,12 @@ class AffinityFile:
 
     def printdir(self, file=None):
         date = self.directory.creation_date.strftime('%Y-%m-%d %H:%M:%S')
-        entries = [
-            ("File Name", "Modified", "Size"),
-            *((entry.filename, date, str(entry.size_original)) for entry in self.directory.file_entries),
-        ]
-        filename_len = max(len(entry[0]) for entry in entries)
-        modified_len = max(len(entry[1]) for entry in entries)
-        size_len = max(len(entry[2]) for entry in entries)
-
-        for entry in entries:
-            filename, modified, size = entry
-            print(
-                "{0} {1} {2}".format(
-                    filename.ljust(filename_len),
-                    modified.ljust(modified_len),
-                    size.rjust(size_len)
-                ),
-                file=file
-            )
+        print_columns(
+            ("File Name", "Modified", "Original Size", "Stored Size"),
+            [(entry.filename, date, entry.size_original, entry.size_stored)
+             for entry in self.directory.file_entries],
+            file=file
+        )
 
     def _find_entry(self, name: str) -> Optional[AffinityFileInfo]:
         for file_entry in self.directory.file_entries:
