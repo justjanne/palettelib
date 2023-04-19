@@ -56,14 +56,14 @@ class AffinityFileDirectory(NamedTuple):
 
 
 class AffinityExtFile(BufferedIOBase):
-    info: AffinityFileInfo
-    file: Optional[BinaryIO]
+    _info: AffinityFileInfo
+    _file: Optional[BinaryIO]
     _close: Callable[[], None]
-    position = 0
+    _position = 0
 
     def __init__(self, file: BinaryIO, info: AffinityFileInfo, close: Callable[[], None]):
-        self.file = file
-        self.info = info
+        self._file = file
+        self._info = info
         self._close = close
 
     def __enter__(self):
@@ -74,45 +74,48 @@ class AffinityExtFile(BufferedIOBase):
 
     @contextlib.contextmanager
     def _remember_position(self):
-        if self.file is None:
+        if self._file.closed:
             raise ValueError("attempted to read file that is already closed")
-        position = self.file.tell()
+        position = self._file.tell()
         yield
-        self.file.seek(position)
+        self._file.seek(position)
+
+    def closed(self) -> bool:
+        return self._file is None or self._file.closed
 
     def close(self) -> None:
-        if self.file is not None:
+        if self._file is not None:
             self._close()
-            self.file = None
+            self._file = None
 
     def peek(self, n=1) -> bytes:
         if n < 0:
-            n = self.info.size_original - self.position
+            n = self._info.size_original - self._position
         data = None
         with self._remember_position():
-            self.file.seek(self.position + self.info.offset)
-            data = self.file.read(n)
+            self._file.seek(self._position + self._info.offset)
+            data = self._file.read(n)
         return data
 
     def readable(self):
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
         return True
 
     def read(self, n=-1) -> bytes:
         if n < 0:
-            n = self.info.size_original - self.position
+            n = self._info.size_original - self._position
         data = self.peek(n)
-        self.position += n
+        self._position += n
         return data
 
     def seekable(self):
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
-        return self.file.seekable()
+        return self._file.seekable()
 
     def seek(self, offset, whence=0):
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
         if not self.seekable():
             raise io.UnsupportedOperation("underlying stream is not seekable")
@@ -122,30 +125,32 @@ class AffinityExtFile(BufferedIOBase):
         elif whence == 1:  # Seek from current position
             new_position = old_position + offset
         elif whence == 2:  # Seek from EOF
-            new_position = self.info.offset + offset
+            new_position = self._info.offset + offset
         else:
             raise ValueError("whence must be os.SEEK_SET (0), "
                              "os.SEEK_CUR (1), or os.SEEK_END (2)")
 
-        if new_position > self.info.size_original:
-            new_position = self.info.size_original
+        if new_position > self._info.size_original:
+            new_position = self._info.size_original
 
         if new_position < 0:
             new_position = 0
-        self.position = new_position
+        self._position = new_position
         return self.tell()
 
     def tell(self):
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
         if not self.seekable():
             raise io.UnsupportedOperation("underlying stream is not seekable")
-        return self.position
+        return self._position
 
 
 class AffinityFile:
-    file: Optional[BinaryIO]
-    filename: str
+    _file: Optional[BinaryIO]
+    _filename: str
+    _refcount = 0
+    _closed = False
 
     header: AffinityFileHeader
     offsets: AffinityFileOffsets
@@ -156,16 +161,16 @@ class AffinityFile:
         if isinstance(file, os.PathLike):
             file = os.fspath(file)
         if isinstance(file, str):
-            self.filename = file
+            self._filename = file
             if mode == 'r':
-                self.file = open(file, 'rb')
+                self._file = open(file, 'rb')
             elif mode == 'w':
-                self.file = open(file, 'wb')
+                self._file = open(file, 'wb')
             else:
                 raise ValueError("AffinityFile requires mode 'r', 'w'")
         else:
-            self.file = file
-            self.filename = getattr(file, 'name', None)
+            self._file = file
+            self._filename = getattr(file, 'name', None)
         self._populate_info()
 
     def __enter__(self):
@@ -201,35 +206,50 @@ class AffinityFile:
                 return file_entry
         return None
 
+    def closed(self):
+        if self._file is None or self._file.closed:
+            self._closed = True
+        return self._closed
+
     def close(self):
-        if self.file is not None:
-            self.file.close()
-            self.file = None
+        self._closed = True
+        if self._refcount > 0:
+            return
+        if self._file is None:
+            return
+        if self._file.closed:
+            return
+        self._file.close()
+
+    def _close(self):
+        self._refcount -= 1
+        if self._closed:
+            self.close()
 
     def read(self, name):
-        """Return file bytes for name."""
-        with self.open(name, "r") as fp:
-            return fp.read()
+        with self.open(name, "r") as file:
+            return file.read()
 
-    def open(self, name, mode="r"):
+    def open(self, name, mode="r") -> AffinityExtFile:
         if mode not in ['r', 'w']:
             raise ValueError('open() requires mode "r" or "w"')
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
         if mode == 'w':
             raise ValueError("writing is currently not implemented")
         file = self._find_entry(name)
         if file is None:
             raise IOError("file does not exist")
-        return AffinityExtFile(self.file, file, self.close)
+        self._refcount += 1
+        return AffinityExtFile(self._file, file, self._close)
 
     @contextlib.contextmanager
     def _remember_position(self):
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
-        position = self.file.tell()
+        position = self._file.tell()
         yield
-        self.file.seek(position)
+        self._file.seek(position)
 
     def _populate_info(self):
         self.header = self._read_header()
@@ -238,94 +258,94 @@ class AffinityFile:
         self.directory = self._read_directory(self.offsets)
 
     def _read_tag(self) -> str:
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
-        return self.file.read(4).decode('ascii')
+        return self._file.read(4).decode('ascii')
 
     def _read_header(self) -> AffinityFileHeader:
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
         with self._remember_position():
-            self.file.seek(0)
-            magic = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
+            self._file.seek(0)
+            magic = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
             if magic != CONTAINER_MAGIC:
                 raise ValueError("could not read file header, invalid magic: {0:x}".format(magic))
-            version = int.from_bytes(self.file.read(2), byteorder='little', signed=False)
-            flag = int.from_bytes(self.file.read(2), byteorder='little', signed=False)
+            version = int.from_bytes(self._file.read(2), byteorder='little', signed=False)
+            flag = int.from_bytes(self._file.read(2), byteorder='little', signed=False)
             filetype = self._read_tag()[::-1]
             return AffinityFileHeader(version, flag, filetype)
 
     def _read_offsets(self) -> AffinityFileOffsets:
-        if self.file is None:
+        if self._file is None:
             raise ValueError("attempted to read file that is already closed")
         with self._remember_position():
-            self.file.seek(12)
+            self._file.seek(12)
             tag = self._read_tag()
             if tag != CONTAINER_TAG_INF:
                 raise ValueError("could not read file offsets, invalid tag: " + tag)
-            directory_offset = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            file_length = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            data_length = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            _ = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            creation_date = int.from_bytes(self.file.read(8), byteorder='little', signed=True)
+            directory_offset = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            file_length = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            data_length = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            _ = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            creation_date = int.from_bytes(self._file.read(8), byteorder='little', signed=True)
             creation_date = datetime.datetime.fromtimestamp(creation_date)
-            _ = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
-            _ = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
+            _ = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
+            _ = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
             return AffinityFileOffsets(directory_offset, file_length, data_length, creation_date)
 
     def _read_protection(self) -> AffinityFileProtection:
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
         with self._remember_position():
-            self.file.seek(64)
+            self._file.seek(64)
             tag = self._read_tag()
             if tag != CONTAINER_TAG_PROT:
                 raise ValueError("could not read file protection, invalid tag: " + tag)
-            flags = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
+            flags = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
             return AffinityFileProtection(flags)
 
     def _read_directory_entry(self, tag: str) -> AffinityFileInfo:
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
-        index = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
-        _ = int.from_bytes(self.file.read(1), byteorder='little', signed=False)
-        offset = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-        size_real = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-        size_stored = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
+        index = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
+        _ = int.from_bytes(self._file.read(1), byteorder='little', signed=False)
+        offset = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+        size_real = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+        size_stored = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
         checksums = [
-            int.from_bytes(self.file.read(4), byteorder='little', signed=False)
+            int.from_bytes(self._file.read(4), byteorder='little', signed=False)
         ]
-        compressed = bool.from_bytes(self.file.read(1), byteorder='little')
+        compressed = bool.from_bytes(self._file.read(1), byteorder='little')
         version = None
         if tag >= CONTAINER_TAG_FT2:
-            version = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
+            version = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
         if tag >= CONTAINER_TAG_FT4:
-            checksums.append(int.from_bytes(self.file.read(4), byteorder='little', signed=False))
-        filename_length = int.from_bytes(self.file.read(2), byteorder='little', signed=False)
-        filename = self.file.read(filename_length).decode('utf-8')
+            checksums.append(int.from_bytes(self._file.read(4), byteorder='little', signed=False))
+        filename_length = int.from_bytes(self._file.read(2), byteorder='little', signed=False)
+        filename = self._file.read(filename_length).decode('utf-8')
         return AffinityFileInfo(
             index, offset, size_real, size_stored, checksums, compressed, version, filename
         )
 
     def _read_directory(self, offsets: AffinityFileOffsets) -> AffinityFileDirectory:
-        if self.file is None:
+        if self.closed():
             raise ValueError("attempted to read file that is already closed")
         with self._remember_position():
-            self.file.seek(offsets.directory_offset)
+            self._file.seek(offsets.directory_offset)
             tag = self._read_tag()
-            flags = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            creation_date = int.from_bytes(self.file.read(8), byteorder='little', signed=True)
+            flags = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            creation_date = int.from_bytes(self._file.read(8), byteorder='little', signed=True)
             creation_date = datetime.datetime.fromtimestamp(creation_date)
-            file_length = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            data_length = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            _ = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            table_count = int.from_bytes(self.file.read(8), byteorder='little', signed=False)
-            table_length = int.from_bytes(self.file.read(4), byteorder='little', signed=False)
-            _ = self.file.read(3)
+            file_length = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            data_length = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            _ = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            table_count = int.from_bytes(self._file.read(8), byteorder='little', signed=False)
+            table_length = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
+            _ = self._file.read(3)
             file_entries = []
-            end = self.file.tell() + table_length
+            end = self._file.tell() + table_length
             for _ in range(table_count):
-                if self.file.tell() >= end:
+                if self._file.tell() >= end:
                     raise ValueError("file table corrupt: trying to read over the end")
                 file_entries.append(self._read_directory_entry(tag))
             return AffinityFileDirectory(flags, creation_date, file_length, data_length, file_entries)
