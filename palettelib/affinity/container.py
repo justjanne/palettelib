@@ -2,9 +2,12 @@ import contextlib
 import datetime
 import io
 import os
-from io import BufferedIOBase
+import zlib
 from os import PathLike
-from typing import BinaryIO, NamedTuple, Optional, Callable
+from typing import NamedTuple, Optional
+from typing.io import BinaryIO
+
+import zstandard
 
 from palettelib.util import print_columns
 
@@ -36,13 +39,28 @@ class AffinityFileProtection(NamedTuple):
     flags: int
 
 
+class AffinityFileCompression(NamedTuple):
+    algorithm: int
+    flags: int
+
+    def __str__(self):
+        if self.algorithm == 0:
+            return "raw"
+        elif self.algorithm == 1:
+            return "zlib"
+        elif self.algorithm == 2:
+            return "zstd"
+        else:
+            return "unknown"
+
+
 class AffinityFileInfo(NamedTuple):
     index: int
     offset: int
     size_original: int
     size_stored: int
     checksums: list[int]
-    compressed: bool
+    compression: AffinityFileCompression
     version: int
     filename: str
 
@@ -53,97 +71,6 @@ class AffinityFileDirectory(NamedTuple):
     file_length: int
     data_length: int
     file_entries: list[AffinityFileInfo]
-
-
-class AffinityExtFile(BufferedIOBase):
-    _info: AffinityFileInfo
-    _file: Optional[BinaryIO]
-    _close: Callable[[], None]
-    _position = 0
-
-    def __init__(self, file: BinaryIO, info: AffinityFileInfo, close: Callable[[], None]):
-        self._file = file
-        self._info = info
-        self._close = close
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, _type, _value, _traceback):
-        self.close()
-
-    @contextlib.contextmanager
-    def _remember_position(self):
-        if self._file.closed:
-            raise ValueError("attempted to read file that is already closed")
-        position = self._file.tell()
-        yield
-        self._file.seek(position)
-
-    def closed(self) -> bool:
-        return self._file is None or self._file.closed
-
-    def close(self) -> None:
-        if self._file is not None:
-            self._close()
-            self._file = None
-
-    def peek(self, n=1) -> bytes:
-        if n < 0:
-            n = self._info.size_original - self._position
-        data = None
-        with self._remember_position():
-            self._file.seek(self._position + self._info.offset)
-            data = self._file.read(n)
-        return data
-
-    def readable(self):
-        if self.closed():
-            raise ValueError("attempted to read file that is already closed")
-        return True
-
-    def read(self, n=-1) -> bytes:
-        if n < 0:
-            n = self._info.size_original - self._position
-        data = self.peek(n)
-        self._position += n
-        return data
-
-    def seekable(self):
-        if self.closed():
-            raise ValueError("attempted to read file that is already closed")
-        return self._file.seekable()
-
-    def seek(self, offset, whence=0):
-        if self.closed():
-            raise ValueError("attempted to read file that is already closed")
-        if not self.seekable():
-            raise io.UnsupportedOperation("underlying stream is not seekable")
-        old_position = self.tell()
-        if whence == 0:  # Seek from start of file
-            new_position = offset
-        elif whence == 1:  # Seek from current position
-            new_position = old_position + offset
-        elif whence == 2:  # Seek from EOF
-            new_position = self._info.offset + offset
-        else:
-            raise ValueError("whence must be os.SEEK_SET (0), "
-                             "os.SEEK_CUR (1), or os.SEEK_END (2)")
-
-        if new_position > self._info.size_original:
-            new_position = self._info.size_original
-
-        if new_position < 0:
-            new_position = 0
-        self._position = new_position
-        return self.tell()
-
-    def tell(self):
-        if self.closed():
-            raise ValueError("attempted to read file that is already closed")
-        if not self.seekable():
-            raise io.UnsupportedOperation("underlying stream is not seekable")
-        return self._position
 
 
 class AffinityFile:
@@ -194,8 +121,8 @@ class AffinityFile:
     def printdir(self, file=None):
         date = self.directory.creation_date.strftime('%Y-%m-%d %H:%M:%S')
         print_columns(
-            ("File Name", "Modified", "Original Size", "Stored Size"),
-            [(entry.filename, date, entry.size_original, entry.size_stored)
+            ("File Name", "Modified", "Original Size", "Stored Size", "Compression"),
+            [(entry.filename, date, entry.size_original, entry.size_stored, str(entry.compression))
              for entry in self.directory.file_entries],
             file=file
         )
@@ -230,7 +157,7 @@ class AffinityFile:
         with self.open(name, "r") as file:
             return file.read()
 
-    def open(self, name, mode="r") -> AffinityExtFile:
+    def open(self, name, mode="r"):
         if mode not in ['r', 'w']:
             raise ValueError('open() requires mode "r" or "w"')
         if self.closed():
@@ -240,8 +167,23 @@ class AffinityFile:
         file = self._find_entry(name)
         if file is None:
             raise IOError("file does not exist")
+        with self._remember_position():
+            self._file.seek(file.offset)
+            tag = self._read_tag()
+            if tag != CONTAINER_TAG_FIL:
+                raise ValueError("file is corrupt, file header could not be found")
         self._refcount += 1
-        return AffinityExtFile(self._file, file, self._close)
+        with self._remember_position():
+            self._file.seek(file.offset + 4)
+            data = self._file.read(file.size_stored)
+        if file.compression.algorithm == 0:
+            return io.BytesIO(data)
+        elif file.compression.algorithm == 1:
+            return io.BytesIO(zlib.decompress(data))
+        elif file.compression.algorithm == 2:
+            return zstandard.open(io.BytesIO(data), 'rb')
+        else:
+            raise ValueError("unknown compression algorithm: {0}".format(file.compression))
 
     @contextlib.contextmanager
     def _remember_position(self):
@@ -268,8 +210,11 @@ class AffinityFile:
         with self._remember_position():
             self._file.seek(0)
             magic = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
-            if magic != CONTAINER_MAGIC:
-                raise ValueError("could not read file header, invalid magic: {0:x}".format(magic))
+            if CONTAINER_MAGIC != magic:
+                raise ValueError(
+                    "could not read file header, invalid magic {0:x}, expected {1:x}"
+                    .format(magic, CONTAINER_MAGIC)
+                )
             version = int.from_bytes(self._file.read(2), byteorder='little', signed=False)
             flag = int.from_bytes(self._file.read(2), byteorder='little', signed=False)
             filetype = self._read_tag()[::-1]
@@ -315,7 +260,11 @@ class AffinityFile:
         checksums = [
             int.from_bytes(self._file.read(4), byteorder='little', signed=False)
         ]
-        compressed = bool.from_bytes(self._file.read(1), byteorder='little')
+        compression = int.from_bytes(self._file.read(1), byteorder='little', signed=False)
+        compression = AffinityFileCompression(
+            flags=compression >> 2,
+            algorithm=compression & 3
+        )
         version = None
         if tag >= CONTAINER_TAG_FT2:
             version = int.from_bytes(self._file.read(4), byteorder='little', signed=False)
@@ -324,7 +273,7 @@ class AffinityFile:
         filename_length = int.from_bytes(self._file.read(2), byteorder='little', signed=False)
         filename = self._file.read(filename_length).decode('utf-8')
         return AffinityFileInfo(
-            index, offset, size_real, size_stored, checksums, compressed, version, filename
+            index, offset, size_real, size_stored, checksums, compression, version, filename
         )
 
     def _read_directory(self, offsets: AffinityFileOffsets) -> AffinityFileDirectory:
